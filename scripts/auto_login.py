@@ -615,29 +615,45 @@ class AutoLogin:
             time.sleep(3)
             page.wait_for_load_state('networkidle', timeout=30000)
     
-    def wait_redirect(self, page, wait=60):
+        def wait_redirect(self, page, wait=120):
         """等待重定向并检测区域"""
-        self.log("等待重定向...", "STEP")
+        self.log(f"等待重定向 (最长 {wait} 秒)...", "STEP")
         for i in range(wait):
             url = page.url
             
+            # 每 10 秒打印一次当前 URL，方便调试
+            if i % 10 == 0:
+                self.log(f"  等待中... ({i}s) 当前 URL: {url}")
+                self.shot(page, f"redirect_wait_{i}s")
+
             # 检查是否已跳转到 claw.cloud
             if 'claw.cloud' in url and 'signin' not in url.lower():
                 self.log("重定向成功！", "SUCCESS")
-                
-                # 检测并记录区域
                 self.detect_region(url)
-                
                 return True
             
-            if 'github.com/login/oauth/authorize' in url:
-                self.oauth(page)
-            
+            # 如果还在 GitHub 授权页，或者页面上有授权按钮，直接处理
+            if 'github.com' in url:
+                # 尝试寻找并点击授权按钮
+                try:
+                    auth_btn = page.locator('button[name="authorize"], button:has-text("Authorize"), button#js-oauth-authorize-btn').first
+                    if auth_btn.is_visible(timeout=2000):
+                        self.log("检测到授权按钮，尝试点击...", "INFO")
+                        auth_btn.click()
+                        time.sleep(3)
+                except:
+                    pass
+                
+                # 每 30 秒尝试刷新一次，防止页面卡死
+                if i > 0 and i % 30 == 0:
+                    self.log("尝试刷新页面...", "INFO")
+                    try: page.reload(timeout=10000)
+                    except: pass
+
             time.sleep(1)
-            if i % 10 == 0:
-                self.log(f"  等待... ({i}秒)")
         
-        self.log("重定向超时", "ERROR")
+        self.log("重定向超时，最终 URL: " + page.url, "ERROR")
+        self.shot(page, "redirect_timeout")
         return False
     
     def keepalive(self, page):
