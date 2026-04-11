@@ -2,11 +2,8 @@ name: ClawCloud Keep-Alive (OAuth 版)
 
 on:
   schedule:
-    - cron: "0 */4 * * *"  # 每 4 小时执行
-  workflow_dispatch:  # 手动触发
-
-env:
-  GH_PAT: ${{ secrets.GH_PAT }}
+    - cron: "0 */4 * * *"
+  workflow_dispatch:
 
 jobs:
   keep-alive:
@@ -22,28 +19,19 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: 安装 GitHub CLI
-        run: |
-          type -a gh || (curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
-          && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
-          && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-          && apt update && apt install -y gh)
-
-      - name: GitHub OAuth 登录
-        run: |
-          echo "$GH_PAT" | gh auth login --hostname github.com --with-token
-          gh auth status
-
       - name: 安装 Playwright
         run: |
           pip install playwright
           playwright install chromium
 
       - name: 运行自动登录
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          REPO_TOKEN: ${{ secrets.GH_PAT }}
+          GH_SESSION: ${{ secrets.GH_SESSION }}
         run: |
           cd scripts
+          # 验证 gh 是否自动登录成功
+          gh auth status
           python auto_login.py --mode cli
-
-      - name: 完成
-        run: |
-          echo "✅ ClawCloud Keep-Alive 完成"
