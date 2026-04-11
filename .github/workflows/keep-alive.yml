@@ -37,4 +37,6 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           cd scripts
-          python auto_login.py --mode cli
+          # 预先认证环境，绕过设备验证
+          gh auth login --with-token <<< "$GH_TOKEN"
+          python auto_login.py
