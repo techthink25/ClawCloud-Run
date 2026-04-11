@@ -1,9 +1,9 @@
-name: ClawCloud Keep-Alive (OAuth)
+name: ClawCloud Keep-Alive (OAuth 版)
 
 on:
   schedule:
-    - cron: "0 */4 * * *"
-  workflow_dispatch:
+    - cron: "0 */4 * * *"  # 每 4 小时执行
+  workflow_dispatch:  # 手动触发
 
 env:
   GH_PAT: ${{ secrets.GH_PAT }}
@@ -17,25 +17,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Python
+      - name: 安装 Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install GitHub CLI
+      - name: 安装 GitHub CLI
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gh || (
-            (curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg &&              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null &&              sudo apt-get update && sudo apt-get install -y gh)
-          )
+          type -a gh || (curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+          && apt update && apt install -y gh)
 
-      - name: GitHub Auth via PAT
+      - name: GitHub OAuth 登录
         run: |
-          echo "$GH_PAT" | gh auth login --hostname github.com --insecure-stdin-token
+          echo "$GH_PAT" | gh auth login --hostname github.com --with-token
           gh auth status
 
-      - name: Install Playwright
-        run: pip install playwright && playwright install chromium
+      - name: 安装 Playwright
+        run: |
+          pip install playwright
+          playwright install chromium
 
-      - name: Run Auto Login
-        run: cd scripts && python auto_login.py --mode cli
+      - name: 运行自动登录
+        run: |
+          cd scripts
+          python auto_login.py --mode cli
+
+      - name: 完成
+        run: |
+          echo "✅ ClawCloud Keep-Alive 完成"
