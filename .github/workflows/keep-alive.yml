@@ -1,46 +1,41 @@
-name: ClawCloud 自动登录保活
+name: ClawCloud Keep-Alive (OAuth)
 
 on:
   schedule:
-    - cron: '0 1 */5 * *'  # UTC 1:00，每5天运行
+    - cron: "0 */4 * * *"
   workflow_dispatch:
 
+env:
+  GH_PAT: ${{ secrets.GH_PAT }}
+
 jobs:
-  auto-login:
+  keep-alive:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    
+
     steps:
-      - name: 检出代码
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 设置 Python
+      - name: Install Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - name: 安装依赖
+      - name: Install GitHub CLI
         run: |
-          pip install playwright requests pynacl
-          playwright install chromium
-          playwright install-deps
+          sudo apt-get update
+          sudo apt-get install -y gh || (
+            (curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg &&              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null &&              sudo apt-get update && sudo apt-get install -y gh)
+          )
 
-      - name: 运行自动登录
-        env:
-          GH_USERNAME: ${{ secrets.GH_USERNAME }}
-          GH_PASSWORD: ${{ secrets.GH_PASSWORD }}
-          GH_SESSION: ${{ secrets.GH_SESSION }}
-          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-          REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
-          
-        run: python scripts/auto_login.py
-        
-      - name: Keepalive Workflow
+      - name: GitHub Auth via PAT
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git commit --allow-empty -m "Chore: Keep-alive [skip ci]"
-          git push || echo "No changes to push"
+          echo "$GH_PAT" | gh auth login --hostname github.com --insecure-stdin-token
+          gh auth status
 
+      - name: Install Playwright
+        run: pip install playwright && playwright install chromium
 
+      - name: Run Auto Login
+        run: cd scripts && python auto_login.py --mode cli
