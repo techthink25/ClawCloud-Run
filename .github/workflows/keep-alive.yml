@@ -21,7 +21,7 @@ jobs:
 
       - name: 安装依赖
         run: |
-          pip install requests playwright
+          pip install requests playwright pyNaCl
           playwright install chromium
 
       - name: 运行自动登录
@@ -30,8 +30,11 @@ jobs:
           GH_PAT: ${{ secrets.GH_PAT }}
           REPO_TOKEN: ${{ secrets.GH_PAT }}
           GH_SESSION: ${{ secrets.GH_SESSION }}
+          GH_USERNAME: ${{ secrets.GH_USERNAME }}
+          GH_PASSWORD: ${{ secrets.GH_PASSWORD }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           cd scripts
-          # 验证 gh 是否自动登录成功
-          gh auth status
           python auto_login.py --mode cli
