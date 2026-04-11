@@ -141,10 +141,26 @@ class AutoLogin:
     def apply_anti_detection(self, page: Page):
         """注入脚本抹除自动化特征"""
         page.add_init_script("""
+            // 抹除 webdriver 特征
             Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+            
+            // 模拟 Chrome 特性
             window.chrome = { runtime: {} };
+            
+            // 模拟语言和插件
             Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
             Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+            
+            // 模拟硬件并发
+            Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
+            
+            // 模拟 WebGL 渲染
+            const getParameter = WebGLRenderingContext.prototype.getParameter;
+            WebGLRenderingContext.prototype.getParameter = function(parameter) {
+                if (parameter === 37445) return 'Intel Open Source Technology Center';
+                if (parameter === 37446) return 'Mesa DRI Intel(R) HD Graphics 520 (Skylake GT2)';
+                return getParameter.apply(this, arguments);
+            };
         """)
 
     def wait_redirect(self, page: Page) -> Optional[str]:
@@ -154,8 +170,22 @@ class AutoLogin:
         
         while time.time() - start_time < 120:
             current_url = page.url
-            # self.log(f"当前 URL: {current_url}")
+            title = page.title()
             
+            # 检测是否遇到 Cloudflare 验证
+            if "Just a moment..." in title or "Security Verification" in title or "cloudflare" in current_url:
+                self.log("检测到 Cloudflare 验证，尝试自动点击...", "WARN")
+                try:
+                    # 尝试点击 CF 的复选框（如果可见）
+                    cf_frame = page.frame_locator('iframe[src*="cloudflare"]')
+                    if cf_frame.locator('input[type="checkbox"]').is_visible():
+                        cf_frame.locator('input[type="checkbox"]').click()
+                        self.log("已点击 Cloudflare 复选框", "SUCCESS")
+                except:
+                    pass
+                time.sleep(5)
+                continue
+
             # 检测是否进入控制台
             if ".run.claw.cloud/apps" in current_url or ".run.claw.cloud/profile" in current_url:
                 match = re.search(r"https://(.*?)\.run\.claw\.cloud", current_url)
@@ -164,10 +194,12 @@ class AutoLogin:
                 return region
             
             # 检测是否卡在登录页（OAuth 循环）
-            if "/login/signin" in current_url and page.locator('button:has-text("GitHub")').is_visible():
-                self.log("检测到登录循环，尝试再次点击 GitHub 登录...", "WARN")
-                page.locator('button:has-text("GitHub")').click()
-                time.sleep(5)
+            if "/login/signin" in current_url:
+                github_btn = page.locator('button:has-text("GitHub"), a:has-text("GitHub")').first
+                if github_btn.is_visible():
+                    self.log("检测到登录循环，尝试再次点击 GitHub 登录...", "WARN")
+                    github_btn.click()
+                    time.sleep(5)
             
             # 检测是否需要授权
             if "github.com/login/oauth/authorize" in current_url:
@@ -178,8 +210,9 @@ class AutoLogin:
             
             time.sleep(2)
         
-        self.log("重定向超时", "ERROR")
+        self.log(f"重定向超时，最后 URL: {page.url}", "ERROR")
         return None
+
 
     def run(self):
         self.log("🚀 开始 ClawCloud 自动登录流程", "INFO")
