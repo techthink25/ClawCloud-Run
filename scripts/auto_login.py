@@ -233,21 +233,43 @@ class AutoLogin:
             self.click(page, ['button[name="authorize"]'], "授权")
             time.sleep(3)
 
-    def wait_redirect(self, page, wait=120):
+        def wait_redirect(self, page, wait=120):
+        """等待重定向并检测区域"""
         self.log(f"等待重定向 (最长 {wait} 秒)...", "STEP")
         for i in range(wait):
             url = page.url
             if i % 10 == 0:
                 self.log(f"  等待中... ({i}s) 当前 URL: {url}")
-            if 'claw.cloud' in url and 'signin' not in url.lower():
+            
+            # 成功判定：URL 不含 signin 且包含 claw.cloud，或者页面出现了 Apps 关键字
+            is_dashboard = ('claw.cloud' in url and 'signin' not in url.lower() and 'login' not in url.lower())
+            if not is_dashboard:
+                # 额外检查页面内容，防止 URL 没变但内容已加载
+                try:
+                    if page.locator('text=Apps, text=Logout, .ant-avatar').first.is_visible(timeout=500):
+                        is_dashboard = True
+                except: pass
+
+            if is_dashboard:
                 self.log("重定向成功！", "SUCCESS")
                 self.detect_region(url)
                 return True
+            
+            # 如果回到了登录页，尝试再次点击 GitHub 按钮（OAuth 常见补丁）
+            if 'signin' in url.lower() or 'login' in url.lower():
+                if i > 5 and i % 20 == 0:
+                    self.log("似乎回到了登录页，尝试再次点击 GitHub 按钮...", "WARN")
+                    self.click(page, ['button:has-text("GitHub")', '[data-provider="github"]'], "GitHub (重试)")
+            
+            # 处理 GitHub 授权
             if 'github.com' in url:
                 try:
                     auth_btn = page.locator('button[name="authorize"], button#js-oauth-authorize-btn').first
-                    if auth_btn.is_visible(timeout=1000): auth_btn.click()
+                    if auth_btn.is_visible(timeout=1000):
+                        self.log("检测到授权按钮，点击授权...", "INFO")
+                        auth_btn.click()
                 except: pass
+            
             time.sleep(1)
         return False
 
