@@ -26,8 +26,7 @@ jobs:
 
       - name: 运行自动登录
         env:
-          # 使用自定义变量名，避免与 gh 默认的 GH_TOKEN 冲突
-          MY_GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_PAT: ${{ secrets.GH_PAT }}
           REPO_TOKEN: ${{ secrets.GH_PAT }}
           GH_SESSION: ${{ secrets.GH_SESSION }}
           GH_USERNAME: ${{ secrets.GH_USERNAME }}
@@ -37,11 +36,5 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           cd scripts
-          # 1. 使用自定义变量登录，避开环境冲突
-          echo "$MY_GH_TOKEN" | gh auth login --with-token
-          
-          # 2. 验证登录状态
-          gh auth status
-          
-          # 3. 运行脚本
+          # 直接运行脚本，不再调用 gh auth login
           python auto_login.py
