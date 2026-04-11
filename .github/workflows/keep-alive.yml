@@ -1,4 +1,4 @@
-name: ClawCloud Keep-Alive (OAuth 版)
+name: ClawCloud Keep-Alive (Super OAuth 版)
 
 on:
   schedule:
@@ -36,5 +36,6 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           cd scripts
-          # 直接运行脚本，不再调用 gh auth login
+          # 使用你的 PAT 预认证环境，这是绕过设备验证的关键
+          echo "$GH_PAT" | gh auth login --with-token
           python auto_login.py
